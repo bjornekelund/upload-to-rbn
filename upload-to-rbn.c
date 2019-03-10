@@ -8,31 +8,27 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-const char name[] = "report.pskreporter.info";
-const char soft[] = "STEMlab SDR FT8 TRX 1.0";
+// const char name[] = "report.pskreporter.info";
+const char ID[] = "STEMlab SDR FT8 TRX 1.0";
 
-int32_t read_int(char **pointer, int32_t *value)
-{
+int32_t read_int(char **pointer, int32_t *value) {
   char *start = *pointer;
   *value = strtol(start, pointer, 10);
   return start != *pointer;
 }
 
-int32_t read_dbl(char **pointer, double *value)
-{
+int32_t read_dbl(char **pointer, double *value) {
   char *start = *pointer;
   *value = strtod(start, pointer);
   return start != *pointer;
 }
 
-int32_t read_time(char **pointer, struct tm *value)
-{
+int32_t read_time(char **pointer, struct tm *value) {
   *pointer = strptime(*pointer, "%y%m%d %H%M%S", value);
   return *pointer != NULL;
 }
 
-void copy_char(char **pointer, const char *value)
-{
+void copy_char(char **pointer, const char *value) {
   int8_t size = strlen(value);
   memcpy(*pointer, &size, 1);
   *pointer += 1;
@@ -40,60 +36,41 @@ void copy_char(char **pointer, const char *value)
   *pointer += size;
 }
 
-void copy_int1(char **pointer, int8_t value)
-{
+void copy_int1(char **pointer, int8_t value) {
   memcpy(*pointer, &value, 1);
   *pointer += 1;
 }
 
-void copy_int2(char **pointer, int16_t value)
-{
+void copy_int2(char **pointer, int16_t value) {
   value = htons(value);
   memcpy(*pointer, &value, 2);
   *pointer += 2;
 }
 
-void copy_int4(char **pointer, int32_t value)
-{
+void copy_int4(char **pointer, int32_t value) {
   value = htonl(value);
   memcpy(*pointer, &value, 4);
   *pointer += 4;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   FILE *fp;
   int sock;
   struct hostent *host;
-  struct sockaddr_in addr;
+  struct sockaddr_in broadcastAddr; /* Broadcast address */
+  int broadcastPermission;	    /* Socket opt to set permission to broadcast */
   struct tm tm;
   struct timespec ts;
   double sync, dt;
-  int32_t snr, freq, counter, rc, padding, sequence, size;
-  char buffer[512], line[64], call[8], grid[8], *src, *dst, *start;
-  char header[] =
-  {
-    0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  int32_t snr, freq, bfreq, counter, rc, sequence, size;
+  char buffer[512], line[64], ssnr[8], call[8], grid[8], *src, *dst, *start;
 
-    0x00, 0x03, 0x00, 0x2C, 0x99, 0x92, 0x00, 0x04,
-    0x00, 0x00,
-    0x80, 0x02, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F,
-    0x80, 0x04, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F,
-    0x80, 0x08, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F,
-    0x80, 0x09, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F,
-    0x00, 0x00,
+  char msg1[] = { 0x00, 0x00, 0x00, 0x01 };
+  char msg2[] = { 0x00, 0x00, 0x00, 0x02 };
+  char header[] = { 0xAD, 0xBC, 0xCB, 0xDA, 0x00, 0x00, 0x00, 0x00 };
+  char schema[] = { 0x00, 0x00, 0x00, 0x03 };
 
-    0x00, 0x02, 0x00, 0x3C, 0x99, 0x93, 0x00, 0x07,
-    0x80, 0x01, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F,
-    0x80, 0x03, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F,
-    0x80, 0x05, 0x00, 0x04, 0x00, 0x00, 0x76, 0x8F,
-    0x80, 0x06, 0x00, 0x01, 0x00, 0x00, 0x76, 0x8F,
-    0x80, 0x0A, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F,
-    0x80, 0x0B, 0x00, 0x01, 0x00, 0x00, 0x76, 0x8F,
-    0x00, 0x96, 0x00, 0x04
-  };
-  int broadcastPort; /* IP broadcast port */
+  unsigned short broadcastPort; /* IP broadcast port */
   char *broadcastIP; /* IP broadcast address */
 
   broadcastIP = argv[1];
@@ -111,53 +88,60 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
-  if((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+  /* Create socket for sending datagrams */
+  if((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
   {
     fprintf(stderr, "Cannot open socket.\n");
     return EXIT_FAILURE;
   }
 
-  if((host = gethostbyname(name)) == NULL)
+  /* Set socket to allow braodcast */
+  broadcastPermission = 1;
+  if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *) &broadcastPermission, sizeof(broadcastPermission)) < 0)
   {
-    fprintf(stderr, "Cannot find remote host address.\n");
+    fprintf(stderr, "Enabling broadcast failed.\n");
     return EXIT_FAILURE;
   }
 
-  memset(&addr, 0, sizeof(addr));
-  addr.sin_family = AF_INET;
-  memcpy(&addr.sin_addr.s_addr, host->h_addr, host->h_length);
-  addr.sin_port = htons(4739);
 
-  clock_gettime(CLOCK_REALTIME, &ts);
-  srand(ts.tv_nsec / 1000);
+  printf("broadcastIP: %s broadcastPort: %d\n", broadcastIP, broadcastPort);
 
-  dst = header + 12;
-  copy_int4(&dst, rand());
+  memset(&broadcastAddr, 0, sizeof(broadcastAddr)); /* Zero out structure */
 
-  memcpy(buffer, header, sizeof(header));
+  broadcastAddr.sin_family = AF_INET; /* Address family */
+  broadcastAddr.sin_addr.s_addr = inet_addr(broadcastIP); /* Broadcast IP address */
+  broadcastAddr.sin_port = htons(broadcastPort); /* Broadcast IP port */
 
-  start = buffer + sizeof(header);
+//  memcpy(&broadcastAddr.sin_addr.s_addr, host->h_addr, host->h_length);
 
-  dst = start + 4;
-  copy_char(&dst, argv[1]);
-  copy_char(&dst, argv[2]);
-  copy_char(&dst, soft);
-  copy_char(&dst, argv[3]);
+//  clock_gettime(CLOCK_REALTIME, &ts);
+//  srand(ts.tv_nsec / 1000);
 
-  size = dst - start;
-  padding = (4 - size % 4) % 4;
-  size += padding;
-  memset(dst, 0, padding);
+//  dst = header + 12;
+//  copy_int4(&dst, rand());
 
-  dst = start;
-  copy_int2(&dst, 0x9992);
-  copy_int2(&dst, size);
 
-  start += size;
+//  dst = start + 4;
+//  copy_char(&dst, argv[1]);
+//  copy_char(&dst, argv[2]);
+//  copy_char(&dst, soft);
+//  copy_char(&dst, argv[3]);
+//
+//  size = dst - start;
+//  padding = (4 - size % 4) % 4;
+//  size += padding;
+//  memset(dst, 0, padding);
+//
+//  dst = start;
+//  copy_int2(&dst, 0x9992);
+//  copy_int2(&dst, size);
+//
+//  start += size;
+//
+//  counter = 0;
+//  sequence = 0;
+//  dst = start + 4;
 
-  counter = 0;
-  sequence = 0;
-  dst = start + 4;
   for(;;)
   {
     src = fgets(line, 64, fp);
@@ -171,46 +155,79 @@ int main(int argc, char *argv[])
         && read_int(&src, &snr)
         && read_dbl(&src, &dt)
         && read_int(&src, &freq)
-        && sscanf(src, "%6s %4s", call, grid);
+        && sscanf(src, "%8s %4s", call, grid);
 
-      if(!rc) continue;
+      if(!rc) continue; /* Skip if parsing failed */
 
-      copy_char(&dst, call);
-      copy_char(&dst, grid);
-      copy_int4(&dst, freq);
-      copy_int1(&dst, snr);
-      copy_char(&dst, "FT8");
-      copy_int1(&dst, 1);
-      copy_int4(&dst, timegm(&tm) + 15);
+      switch ((int)(freq / 10000)) {
+    	case  184: bfreq =  1840000; break;
+	case  357: bfreq =  3573000; break;
+	case  535: bfreq =  5357000; break;
+	case  707: bfreq =  7074000; break;
+	case 1013: bfreq = 10136000; break;
+	case 1407: bfreq = 14074000; break;
+	case 1810: bfreq = 18100000; break;
+	case 2107: bfreq = 21074000; break;
+	case 2491: bfreq = 24915000; break;
+	case 2807: bfreq = 28074000; break;
+	case 5031: bfreq = 50313000; break;
+	default:   bfreq = 1000 * (int)(freq / 1000);
+      } // Switch
 
-      ++counter;
+      sprintf(ssnr, "%d", snr);
 
-      if(counter < 10) continue;
-    }
+      printf("call:%-9s grid:%4s sync:%5.1f freq:%8d bfreq:%8d dt:%4.1f snr:%3s\n", call, grid, sync, freq, bfreq, dt, ssnr);
 
-    if(counter > 0)
-    {
-      size = dst - start;
-      padding = (4 - size % 4) % 4;
-      size += padding;
-      memset(dst, 0, padding);
+      // Prepare status datagram
+      memcpy(buffer, header, sizeof(header));
+      size = sizeof(header);
+      dst = buffer + sizeof(header);
 
-      dst = start;
-      copy_int2(&dst, 0x9993);
-      copy_int2(&dst, size);
+      memcpy(dst, msg1, sizeof(msg1));
+      size += sizeof(msg1);
+      dst += sizeof(msg1);
 
-      dst = buffer + 2;
-      size += start - buffer;
-      copy_int2(&dst, size);
-      copy_int4(&dst, time(NULL));
-      copy_int4(&dst, sequence);
+      copy_char(&dst, ID); size += sizeof(ID);
 
-      sendto(sock, buffer, size, 0, (struct sockaddr *)&addr, sizeof(addr));
+      copy_int4(&dst, 0);
+      copy_int4(&dst, bfreq);
+      size += 8;
 
-      counter = 0;
+      copy_char(&dst, "FT8"); size += sizeof("FT8");
+
+      copy_char(&dst, call); size += sizeof(call);
+
+      copy_char(&dst, ssnr); size += sizeof(ssnr);
+
+      copy_char(&dst, "FT8"); size += sizeof("FT8");
+
+      copy_int1(&dst, 0); size += 1; // TX enable = false
+      copy_int1(&dst, 0); size += 1; // Transmitting = false
+      copy_int1(&dst, 0); size += 1; // Decoding = false
+
+      copy_int4(&dst, 0); size += 4; // rxdf - ignored by RBNA
+      copy_int4(&dst, 0); size += 4; // txdf - ignored by  RBNA
+
+      copy_char(&dst, "AB1CDE"); size += sizeof("AB1CDE"); // DE call - ignored by RBNA
+      copy_char(&dst, "AB12"); size += sizeof("AB12"); // DE grid - ignored by RBNA
+
+      copy_int1(&dst, 0); size += 1; // TX watchdog = false - ignored by RBNA
+
+      copy_char(&dst, ""); size += sizeof(""); // Submode - ignored by RBNA
+
+      copy_int1(&dst, 0); size += 1; // Fast mode = false - ignored by RBNA
+
+
+      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size)
+      {
+        fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
+        return EXIT_FAILURE;
+      }
+
+
       ++sequence;
-      dst = start + 4;
-    }
+
+    } // if src != NULL
 
     if(src == NULL) break;
   }
