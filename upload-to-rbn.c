@@ -93,30 +93,17 @@ int main(int argc, char *argv[])
     0x80, 0x0B, 0x00, 0x01, 0x00, 0x00, 0x76, 0x8F,
     0x00, 0x96, 0x00, 0x04
   };
+  int broadcastPort; /* IP broadcast port */
+  char *broadcastIP; /* IP broadcast address */
+
+  broadcastIP = argv[1];
+  broadcastPort = atoi(argv[2]);
 
   if(argc != 4)
   {
-    fprintf(stderr, "Usage: ./%s broadcast-ip broadcast-port file\n", argv[0]);
+    fprintf(stderr, "Usage: %s <Broadcast IP address> <Broadcast port> <Decode file>\n", argv[0]);
     return EXIT_FAILURE;
   }
-
-//  if(strlen(argv[1]) > 16)
-//  {
-//    fprintf(stderr, "Call sign is too long.\n");
-//    return EXIT_FAILURE;
-//  }
-//
-//  if(strlen(argv[2]) > 6)
-//  {
-//    fprintf(stderr, "Grid locator is too long.\n");
-//    return EXIT_FAILURE;
-//  }
-//
-//  if(strlen(argv[3]) > 64)
-//  {
-//    fprintf(stderr, "Antenna description is too long.\n");
-//    return EXIT_FAILURE;
-//  }
 
   if((fp = fopen(argv[3], "r")) == NULL)
   {
@@ -130,11 +117,11 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
-//  if((host = gethostbyname(name)) == NULL)
-//  {
-//    fprintf(stderr, "Cannot find remote host address.\n");
-//    return EXIT_FAILURE;
-//  }
+  if((host = gethostbyname(name)) == NULL)
+  {
+    fprintf(stderr, "Cannot find remote host address.\n");
+    return EXIT_FAILURE;
+  }
 
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
