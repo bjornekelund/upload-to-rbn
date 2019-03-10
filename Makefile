@@ -1,6 +1,4 @@
-CFLAGS = 
-
-all: upload-to-rbn
+CFLAGS =
 
 upload-to-rbn: upload-to-rbn.c
 	gcc $(CFLAGS) -D_GNU_SOURCE -o $@ $^
