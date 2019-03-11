@@ -29,9 +29,10 @@ int32_t read_time(char **pointer, struct tm *value) {
 }
 
 void copy_char(char **pointer, const char *value) {
-  int8_t size = strlen(value);
-  memcpy(*pointer, &size, 1);
-  *pointer += 1;
+  int32_t size = strlen(value);
+  int32_t rsize = htonl(size);
+  memcpy(*pointer, &rsize, 4);
+  *pointer += 4;
   memcpy(*pointer, value, size);
   *pointer += size;
 }
@@ -42,20 +43,20 @@ void copy_int1(char **pointer, int8_t value) {
 }
 
 void copy_int2(char **pointer, int16_t value) {
-//  value = htons(value);
+  value = htons(value);
   memcpy(*pointer, &value, 2);
   *pointer += 2;
 }
 
 void copy_int4(char **pointer, int32_t value) {
-//  value = htonl(value);
+  value = htonl(value);
   memcpy(*pointer, &value, 4);
   *pointer += 4;
 }
 
 void copy_double(char **pointer, double value) {
-//   memcpy(*pointer, &value, 4);
-// just a stub right now
+   memcpy(*pointer, &value, 8);
+// Unclear if works
   *pointer += 8;
 }
 
@@ -154,12 +155,11 @@ int main(int argc, char *argv[]) {
 
       sprintf(ssnr, "%d", snr); // Report as string for status datagram
       hz = freq - bfreq; // Delta frequency for decode datagram
-
       sprintf(message, "CQ %s %s", call, grid); // Compose fake message based on decode
 
 //      printf("Message: %s\n", message);
 
-//      printf("call:%-9s grid:%4s sync:%5.1f freq:%8d bfreq:%8d dt:%4.1f snr:%3s\n", call, grid, sync, freq, bfreq, dt, ssnr);
+      printf("call:%-9s grid:%4s sync:%5.1f freq:%8d bfreq:%8d dt:%4.1f snr:%3s\n", call, grid, sync, freq, bfreq, dt, ssnr);
 
       /*************************************************/
       /* Prepare status datagram                       */
@@ -173,29 +173,46 @@ int main(int argc, char *argv[]) {
       size += sizeof(msg1);
       dst += sizeof(msg1);
 
-      copy_char(&dst, ID); size += sizeof(ID); // Receiver software ID - ignored by RBNA
+//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
+
+      copy_char(&dst, ID); size += strlen(ID) + 4; // Receiver software ID - ignored by RBNA
+
+//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
 
       copy_int4(&dst, 0);       // Base frequency as 8 byte integer
       copy_int4(&dst, bfreq);
       size += 8;
 
-      copy_char(&dst, "FT8"); size += strlen("FT8") + 1;  // Rx Mode - ignored by RBNA
-      copy_char(&dst, call); size += strlen(call) + 1; // DX call - ignored by RBNA
-      copy_char(&dst, ssnr); size += strlen(ssnr) + 1; // SNR as string - ignored by RBNA
-      copy_char(&dst, "FT8"); size += strlen("FT8") + 1; // Tx Mode - ignored by RBNA
+//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
+
+      copy_char(&dst, "FT8"); size += strlen("FT8") + 4;  // Rx Mode - ignored by RBNA
+      copy_char(&dst, call); size += strlen(call) + 4; // DX call - ignored by RBNA
+
+//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
+
+      copy_char(&dst, ssnr); size += strlen(ssnr) + 4; // SNR as string - ignored by RBNA
+
+      copy_char(&dst, "FT8"); size += strlen("FT8") + 4; // Tx Mode - ignored by RBNA
+
+//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
+
+
       copy_int1(&dst, 0); size += 1; // TX enable = false - ignored by RBNA
+
       copy_int1(&dst, 0); size += 1; // Transmitting = false - ignorded by RBNA
+
       copy_int1(&dst, 0); size += 1; // Decoding = false - ignored by RBNA
       copy_int4(&dst, 0); size += 4; // rxdf - ignored by RBNA
       copy_int4(&dst, 0); size += 4; // txdf - ignored by  RBNA
-      copy_char(&dst, "AB1CDE"); size += strlen("AB1CDE") + 1; // DE call - ignored by RBNA
-      copy_char(&dst, "AB12"); size += strlen("AB12") + 1; // DE grid - ignored by RBNA
+      copy_char(&dst, "AB1CDE"); size += strlen("AB1CDE") + 4; // DE call - ignored by RBNA
+      copy_char(&dst, "AB12"); size += strlen("AB12") + 4; // DE grid - ignored by RBNA
       copy_int1(&dst, 0); size += 1; // TX watchdog = false - ignored by RBNA
-      copy_char(&dst, ""); size += strlen("") + 1; // Submode - ignored by RBNA
+      copy_char(&dst, ""); size += strlen("") + 4; // Submode - ignored by RBNA
       copy_int1(&dst, 0); size += 1; // Fast mode = false - ignored by RBNA
       copy_int1(&dst, 0); size += 1; // Special operation mode = 0 - ignored by RBNA
 
-      printf("Size: %3d dst-buffer: %3d Message: ", size, (int)(dst-buffer)); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
+//      printf("Size: %3d dst-buffer: %3d ", size, (int)(dst-buffer));
+//      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
 
       if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size)
       {
@@ -215,7 +232,9 @@ int main(int argc, char *argv[]) {
       size += sizeof(msg2);
       dst += sizeof(msg2);
 
-      copy_char(&dst, ID); size += strlen(ID) + 1;
+      copy_char(&dst, ID); size += strlen(ID) + 4; // Software ID
+
+      copy_int1(&dst, 1); size += 1; // New = true
 
       copy_int4(&dst, 0); size += 4; //Time = zero - ignored by RBNA
 
@@ -225,15 +244,16 @@ int main(int argc, char *argv[]) {
 
       copy_int4(&dst, hz); size += 4; // Delta frequency in hertz - ignored by RBNA
 
-      copy_char(&dst, "FT8"); size += strlen("FT8") + 1; // Receive mode - ignored by RBNA
+      copy_char(&dst, "FT8"); size += strlen("FT8") + 4; // Receive mode - ignored by RBNA
 
-      copy_char(&dst, message); size += strlen(message) + 1; // Fake message based on decode
+      copy_char(&dst, message); size += strlen(message) + 4; // Fake message based on decode
 
       copy_int1(&dst, 0); size += 1; // Low confidence = false - ignored by RBNA
 
       copy_int1(&dst, 0); size += 1; // Off air = false - ignored by RBNA
 
-      printf("Size: %3d dst-buffer: %3d Message: ", size, (int)(dst-buffer)); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
+//      printf("Size: %3d dst-buffer: %3d ", size, (int)(dst-buffer));
+      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
 
       if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size)
       {
