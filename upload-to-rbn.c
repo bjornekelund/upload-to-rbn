@@ -8,7 +8,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-// const char name[] = "report.pskreporter.info";
 const char ID[] = "STEMlab SDR FT8 TRX 1.0";
 
 int32_t read_int(char **pointer, int32_t *value) {
@@ -55,24 +54,21 @@ void copy_double(char **pointer, double value) {
 }
 
 int main(int argc, char *argv[]) {
-  FILE *fp;
+  FILE *fp;                         // Decode file pointer
   int i;
-  int sock;
-  struct hostent *host;
+  int sock;                         // UDP socket for broadcast
   struct sockaddr_in broadcastAddr; // Broadcast address
   int broadcastPermission = 1;	    // Socket opt to set permission to broadcast
-  struct tm tm;
-  struct timespec ts;
+  struct tm tm;                     // Time and date of decode
   double sync, dt;
   int32_t snr, freq, bfreq, hz, counter, rc, size;
   char buffer[512], line[64], ssnr[8], call[16], grid[8], message[32];
   char *src, *dst, *start;
 
-  char msg1[] = { 0x00, 0x00, 0x00, 0x01 };  // Message number for status datagram
-  char msg2[] = { 0x00, 0x00, 0x00, 0x02 }; // Message number for decode datagram
-
   // Header including schema
   char header[] = { 0xAD, 0xBC, 0xCB, 0xDA, 0x00, 0x00, 0x00, 0x02 };
+  char msg1[] = { 0x00, 0x00, 0x00, 0x01 };  // Message number for status datagram
+  char msg2[] = { 0x00, 0x00, 0x00, 0x02 }; // Message number for decode datagram
 
   unsigned short broadcastPort; // IP broadcast port
   char *broadcastIP; // IP broadcast address
@@ -80,29 +76,25 @@ int main(int argc, char *argv[]) {
   broadcastIP = argv[1];
   broadcastPort = atoi(argv[2]);
 
-  if(argc != 4)
-  {
+  if(argc != 4) {
     fprintf(stderr, "Usage: %s <Broadcast IP address> <Broadcast port> <Decode file>\n", argv[0]);
     return EXIT_FAILURE;
   }
 
-  if((fp = fopen(argv[3], "r")) == NULL)
-  {
+  if((fp = fopen(argv[3], "r")) == NULL) {
     fprintf(stderr, "Cannot open input file.\n");
     return EXIT_FAILURE;
   }
 
   // Create socket for sending datagrams
-  if((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
-  {
+  if((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
     fprintf(stderr, "Cannot open socket.\n");
     return EXIT_FAILURE;
   }
 
   // Set socket to allow broadcast
-//  broadcastPermission = 1;
-  if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *) &broadcastPermission, sizeof(broadcastPermission)) < 0)
-  {
+  if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *) &broadcastPermission,
+      sizeof(broadcastPermission)) < 0) {
     fprintf(stderr, "Enabling broadcast failed.\n");
     close(sock);
     return EXIT_FAILURE;
@@ -116,14 +108,10 @@ int main(int argc, char *argv[]) {
   broadcastAddr.sin_port = htons(broadcastPort); // Broadcast IP port
 
 // Forevever - until we run out of input data
-  for(;;)
-  {
+  for(;;) {
     src = fgets(line, 64, fp);
 
-    if(src != NULL)
-    {
-      call[0] = 0;                      // Not sure if this is needed
-      grid[0] = 0;
+    if(src != NULL) {
       rc = read_time(&src, &tm)         // Read date and time
         && read_dbl(&src, &sync)        // Read sync
         && read_int(&src, &snr)         // Read snr report
@@ -132,7 +120,6 @@ int main(int argc, char *argv[]) {
         && sscanf(src, "%13s %4s", call, grid); // Read call and grid
 
       if(!rc) continue; // Skip and do next line if parsing failed
-
 
       // Snap frequency to base frequency, round down if outside main bands
       switch ((int)(freq / 10000)) {
@@ -196,8 +183,8 @@ int main(int argc, char *argv[]) {
 //      printf("Size: %3d dst-buffer: %3d ", size, (int)(dst-buffer));
 //      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
 
-      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size)
-      {
+      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr,
+          sizeof(broadcastAddr)) != size) {
         fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
         return EXIT_FAILURE;
       }
@@ -215,30 +202,20 @@ int main(int argc, char *argv[]) {
       dst += sizeof(msg2);
 
       copy_char(&dst, ID); size += strlen(ID) + 4; // Software ID
-
       copy_int1(&dst, 1); size += 1; // New = true
-
       copy_int4(&dst, 0); size += 4; //Time = zero - ignored by RBNA
-
       copy_int4(&dst, snr); size += 4; // Report as 4 byte integer
-
       copy_double(&dst, (double)dt); size += 8; // Delta time - ignored by RBNA
-
       copy_int4(&dst, hz); size += 4; // Delta frequency in hertz - ignored by RBNA
-
       copy_char(&dst, "FT8"); size += strlen("FT8") + 4; // Receive mode - ignored by RBNA
-
       copy_char(&dst, message); size += strlen(message) + 4; // Fake message based on decode
-
       copy_int1(&dst, 0); size += 1; // Low confidence = false - ignored by RBNA
-
       copy_int1(&dst, 0); size += 1; // Off air = false - ignored by RBNA
 
 //      printf("Size: %3d dst-buffer: %3d ", size, (int)(dst-buffer));
 //      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
 
-      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size)
-      {
+      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size) {
         fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
         return EXIT_FAILURE;
       }
