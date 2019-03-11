@@ -53,26 +53,33 @@ void copy_int4(char **pointer, int32_t value) {
   *pointer += 4;
 }
 
+void copy_double(char **pointer, double value) {
+//   memcpy(*pointer, &value, 4);
+// just a stub right now
+  *pointer += 8;
+}
+
 int main(int argc, char *argv[]) {
   FILE *fp;
   int sock;
   struct hostent *host;
-  struct sockaddr_in broadcastAddr; /* Broadcast address */
-  int broadcastPermission;	    /* Socket opt to set permission to broadcast */
+  struct sockaddr_in broadcastAddr; // Broadcast address
+  int broadcastPermission;	    // Socket opt to set permission to broadcast
   struct tm tm;
   struct timespec ts;
   double sync, dt;
-  int32_t snr, freq, bfreq, counter, rc, sequence, size;
-  char buffer[512], line[64], ssnr[8], call[16], grid[8], *src, *dst, *start;
+  int32_t snr, freq, bfreq, hz, counter, rc, size;
+  char buffer[512], line[64], ssnr[8], call[16], grid[8], message[32];
+  char *src, *dst, *start;
 
-  char msg1[] = { 0x00, 0x00, 0x00, 0x01 };  /* Message number for status datagram */
-  char msg2[] = { 0x00, 0x00, 0x00, 0x02 }; /* Message number for decode datagram */
+  char msg1[] = { 0x00, 0x00, 0x00, 0x01 };  // Message number for status datagram
+  char msg2[] = { 0x00, 0x00, 0x00, 0x02 }; // Message number for decode datagram
 
-  /* Header including schema */
-  char header[] = { 0xAD, 0xBC, 0xCD, 0xDA, 0x00, 0x00, 0x00, 0x03 };
+  // Header including schema
+  char header[] = { 0xAD, 0xBC, 0xCD, 0xDA, 0x00, 0x00, 0x00, 0x02 };
 
-  unsigned short broadcastPort; /* IP broadcast port */
-  char *broadcastIP; /* IP broadcast address */
+  unsigned short broadcastPort; // IP broadcast port
+  char *broadcastIP; // IP broadcast address
 
   broadcastIP = argv[1];
   broadcastPort = atoi(argv[2]);
@@ -89,14 +96,14 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  /* Create socket for sending datagrams */
+  // Create socket for sending datagrams
   if((sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
   {
     fprintf(stderr, "Cannot open socket.\n");
     return EXIT_FAILURE;
   }
 
-  /* Set socket to allow broadcast */
+  // Set socket to allow broadcast
   broadcastPermission = 1;
   if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *) &broadcastPermission, sizeof(broadcastPermission)) < 0)
   {
@@ -106,10 +113,10 @@ int main(int argc, char *argv[]) {
 
   printf("broadcastIP: %s broadcastPort: %d\n", broadcastIP, broadcastPort);
 
-  memset(&broadcastAddr, 0, sizeof(broadcastAddr)); /* Zero out structure */
-  broadcastAddr.sin_family = AF_INET; /* Address family */
-  broadcastAddr.sin_addr.s_addr = inet_addr(broadcastIP); /* Broadcast IP address */
-  broadcastAddr.sin_port = htons(broadcastPort); /* Broadcast IP port */
+  memset(&broadcastAddr, 0, sizeof(broadcastAddr)); // Zero out structure
+  broadcastAddr.sin_family = AF_INET; // Address family
+  broadcastAddr.sin_addr.s_addr = inet_addr(broadcastIP); // Broadcast IP address
+  broadcastAddr.sin_port = htons(broadcastPort); // Broadcast IP port
 
 // Forevever - until we run out of input data
   for(;;)
@@ -127,7 +134,7 @@ int main(int argc, char *argv[]) {
         && read_int(&src, &freq)
         && sscanf(src, "%13s %4s", call, grid);
 
-      if(!rc) continue; /* Skip and do next line if parsing failed */
+      if(!rc) continue; // Skip and do next line if parsing failed
 
       switch ((int)(freq / 10000)) {
     	case  184: bfreq =  1840000; break;
@@ -144,11 +151,19 @@ int main(int argc, char *argv[]) {
 	default:   bfreq = 1000 * (int)(freq / 1000);
       } // Switch
 
-      sprintf(ssnr, "%d", snr);
+      sprintf(ssnr, "%d", snr); // Report as string for status datagram
+      hz = freq - bfreq; // Delta frequency for decode datagram
+
+      sprintf(message, "CQ %s %s", call, grid); // Compose fake message based on decode
+
+      printf("Message: %s\n", message);
 
 //      printf("call:%-9s grid:%4s sync:%5.1f freq:%8d bfreq:%8d dt:%4.1f snr:%3s\n", call, grid, sync, freq, bfreq, dt, ssnr);
 
-      // Prepare status datagram
+      /*************************************************/
+      /* Prepare status datagram                       */
+      /*************************************************/
+
       memcpy(buffer, header, sizeof(header));
       size = sizeof(header);
       dst = buffer + sizeof(header);
@@ -159,17 +174,17 @@ int main(int argc, char *argv[]) {
 
       copy_char(&dst, ID); size += sizeof(ID);
 
-      copy_int4(&dst, 0);
+      copy_int4(&dst, 0);       // Base frequency as 8 byte integer
       copy_int4(&dst, bfreq);
       size += 8;
 
-      copy_char(&dst, "FT8"); size += sizeof("FT8");
+      copy_char(&dst, "FT8"); size += sizeof("FT8");  // Rx Mode
 
-      copy_char(&dst, call); size += sizeof(call);
+      copy_char(&dst, call); size += sizeof(call); // DX call
 
-      copy_char(&dst, ssnr); size += sizeof(ssnr);
+      copy_char(&dst, ssnr); size += sizeof(ssnr); // SNR as string
 
-      copy_char(&dst, "FT8"); size += sizeof("FT8");
+      copy_char(&dst, "FT8"); size += sizeof("FT8"); // Tx Mode 
 
       copy_int1(&dst, 0); size += 1; // TX enable = false
       copy_int1(&dst, 0); size += 1; // Transmitting = false
@@ -187,6 +202,7 @@ int main(int argc, char *argv[]) {
 
       copy_int1(&dst, 0); size += 1; // Fast mode = false - ignored by RBNA
 
+      copy_int1(&dst, 0); size += 1; // Special operation mode = 0 - ignored by RBNA
 
       if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size)
       {
@@ -194,8 +210,41 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
       }
 
+      /*************************************************/
+      /* Prepare status decode datagram                */
+      /*************************************************/
 
-      ++sequence;
+      memcpy(buffer, header, sizeof(header)); // Header including schema information
+      size = sizeof(header);
+      dst = buffer + sizeof(header);
+
+      memcpy(dst, msg2, sizeof(msg2)); // Message identifier
+      size += sizeof(msg2);
+      dst += sizeof(msg2);
+
+      copy_char(&dst, ID); size += sizeof(ID);
+
+      copy_int4(&dst, 0); size += 4; //Time = zero - ignored by RBNA 
+
+      copy_int4(&dst, snr); size += 4; // Report as 4 byte integer 
+
+      copy_double(&dst, (double)dt); size += 8; // Delta time  - ignored by RBNA
+
+      copy_int4(&dst, hz); size += 4; // Delta frequency in hertz
+
+      copy_char(&dst, "FT8"); size += sizeof("FT8"); // Receive mode
+
+      copy_char(&dst, message); size += sizeof(message); // Fake message based on decode
+
+      copy_int1(&dst, 0); size += 1; // Low confidence = false - ignored by RBNA
+
+      copy_int1(&dst, 0); size += 1; // Off air = false - ignored by RBNA
+
+      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size)
+      {
+        fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
+        return EXIT_FAILURE;
+      }
 
     } // if src != NULL
 
