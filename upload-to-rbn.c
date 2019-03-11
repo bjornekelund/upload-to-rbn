@@ -42,13 +42,13 @@ void copy_int1(char **pointer, int8_t value) {
 }
 
 void copy_int2(char **pointer, int16_t value) {
-  value = htons(value);
+//  value = htons(value);
   memcpy(*pointer, &value, 2);
   *pointer += 2;
 }
 
 void copy_int4(char **pointer, int32_t value) {
-  value = htonl(value);
+//  value = htonl(value);
   memcpy(*pointer, &value, 4);
   *pointer += 4;
 }
@@ -63,12 +63,13 @@ int main(int argc, char *argv[]) {
   struct timespec ts;
   double sync, dt;
   int32_t snr, freq, bfreq, counter, rc, sequence, size;
-  char buffer[512], line[64], ssnr[8], call[8], grid[8], *src, *dst, *start;
+  char buffer[512], line[64], ssnr[8], call[16], grid[8], *src, *dst, *start;
 
-  char msg1[] = { 0x00, 0x00, 0x00, 0x01 };
-  char msg2[] = { 0x00, 0x00, 0x00, 0x02 };
-  char header[] = { 0xAD, 0xBC, 0xCB, 0xDA, 0x00, 0x00, 0x00, 0x00 };
-  char schema[] = { 0x00, 0x00, 0x00, 0x03 };
+  char msg1[] = { 0x00, 0x00, 0x00, 0x01 };  /* Message number for status datagram */
+  char msg2[] = { 0x00, 0x00, 0x00, 0x02 }; /* Message number for decode datagram */
+
+  /* Header including schema */
+  char header[] = { 0xAD, 0xBC, 0xCD, 0xDA, 0x00, 0x00, 0x00, 0x03 };
 
   unsigned short broadcastPort; /* IP broadcast port */
   char *broadcastIP; /* IP broadcast address */
@@ -95,7 +96,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  /* Set socket to allow braodcast */
+  /* Set socket to allow broadcast */
   broadcastPermission = 1;
   if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *) &broadcastPermission, sizeof(broadcastPermission)) < 0)
   {
@@ -103,45 +104,14 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-
   printf("broadcastIP: %s broadcastPort: %d\n", broadcastIP, broadcastPort);
 
   memset(&broadcastAddr, 0, sizeof(broadcastAddr)); /* Zero out structure */
-
   broadcastAddr.sin_family = AF_INET; /* Address family */
   broadcastAddr.sin_addr.s_addr = inet_addr(broadcastIP); /* Broadcast IP address */
   broadcastAddr.sin_port = htons(broadcastPort); /* Broadcast IP port */
 
-//  memcpy(&broadcastAddr.sin_addr.s_addr, host->h_addr, host->h_length);
-
-//  clock_gettime(CLOCK_REALTIME, &ts);
-//  srand(ts.tv_nsec / 1000);
-
-//  dst = header + 12;
-//  copy_int4(&dst, rand());
-
-
-//  dst = start + 4;
-//  copy_char(&dst, argv[1]);
-//  copy_char(&dst, argv[2]);
-//  copy_char(&dst, soft);
-//  copy_char(&dst, argv[3]);
-//
-//  size = dst - start;
-//  padding = (4 - size % 4) % 4;
-//  size += padding;
-//  memset(dst, 0, padding);
-//
-//  dst = start;
-//  copy_int2(&dst, 0x9992);
-//  copy_int2(&dst, size);
-//
-//  start += size;
-//
-//  counter = 0;
-//  sequence = 0;
-//  dst = start + 4;
-
+// Forevever - until we run out of input data
   for(;;)
   {
     src = fgets(line, 64, fp);
@@ -155,9 +125,9 @@ int main(int argc, char *argv[]) {
         && read_int(&src, &snr)
         && read_dbl(&src, &dt)
         && read_int(&src, &freq)
-        && sscanf(src, "%8s %4s", call, grid);
+        && sscanf(src, "%13s %4s", call, grid);
 
-      if(!rc) continue; /* Skip if parsing failed */
+      if(!rc) continue; /* Skip and do next line if parsing failed */
 
       switch ((int)(freq / 10000)) {
     	case  184: bfreq =  1840000; break;
@@ -176,7 +146,7 @@ int main(int argc, char *argv[]) {
 
       sprintf(ssnr, "%d", snr);
 
-      printf("call:%-9s grid:%4s sync:%5.1f freq:%8d bfreq:%8d dt:%4.1f snr:%3s\n", call, grid, sync, freq, bfreq, dt, ssnr);
+//      printf("call:%-9s grid:%4s sync:%5.1f freq:%8d bfreq:%8d dt:%4.1f snr:%3s\n", call, grid, sync, freq, bfreq, dt, ssnr);
 
       // Prepare status datagram
       memcpy(buffer, header, sizeof(header));
