@@ -42,12 +42,6 @@ void copy_int1(char **pointer, int8_t value) {
   *pointer += 1;
 }
 
-void copy_int2(char **pointer, int16_t value) {
-  value = htons(value);
-  memcpy(*pointer, &value, 2);
-  *pointer += 2;
-}
-
 void copy_int4(char **pointer, int32_t value) {
   value = htonl(value);
   memcpy(*pointer, &value, 4);
@@ -66,7 +60,7 @@ int main(int argc, char *argv[]) {
   int sock;
   struct hostent *host;
   struct sockaddr_in broadcastAddr; // Broadcast address
-  int broadcastPermission;	    // Socket opt to set permission to broadcast
+  int broadcastPermission = 1;	    // Socket opt to set permission to broadcast
   struct tm tm;
   struct timespec ts;
   double sync, dt;
@@ -106,14 +100,15 @@ int main(int argc, char *argv[]) {
   }
 
   // Set socket to allow broadcast
-  broadcastPermission = 1;
+//  broadcastPermission = 1;
   if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *) &broadcastPermission, sizeof(broadcastPermission)) < 0)
   {
     fprintf(stderr, "Enabling broadcast failed.\n");
+    close(sock);
     return EXIT_FAILURE;
   }
 
-  printf("broadcastIP: %s broadcastPort: %d\n", broadcastIP, broadcastPort);
+//  printf("broadcastIP: %s broadcastPort: %d\n", broadcastIP, broadcastPort);
 
   memset(&broadcastAddr, 0, sizeof(broadcastAddr)); // Zero out structure
   broadcastAddr.sin_family = AF_INET; // Address family
@@ -127,17 +122,19 @@ int main(int argc, char *argv[]) {
 
     if(src != NULL)
     {
-      call[0] = 0;
+      call[0] = 0;                      // Not sure if this is needed
       grid[0] = 0;
-      rc = read_time(&src, &tm)
-        && read_dbl(&src, &sync)
-        && read_int(&src, &snr)
-        && read_dbl(&src, &dt)
-        && read_int(&src, &freq)
-        && sscanf(src, "%13s %4s", call, grid);
+      rc = read_time(&src, &tm)         // Read date and time
+        && read_dbl(&src, &sync)        // Read sync
+        && read_int(&src, &snr)         // Read snr report
+        && read_dbl(&src, &dt)          // Read timing error
+        && read_int(&src, &freq)        // Read receive frequency
+        && sscanf(src, "%13s %4s", call, grid); // Read call and grid
 
       if(!rc) continue; // Skip and do next line if parsing failed
 
+
+      // Snap frequency to base frequency, round down if outside main bands
       switch ((int)(freq / 10000)) {
     	case  184: bfreq =  1840000; break;
 	case  357: bfreq =  3573000; break;
@@ -159,48 +156,33 @@ int main(int argc, char *argv[]) {
 
 //      printf("Message: %s\n", message);
 
-      printf("call:%-9s grid:%4s sync:%5.1f freq:%8d bfreq:%8d dt:%4.1f snr:%3s\n", call, grid, sync, freq, bfreq, dt, ssnr);
+//      printf("call: %-13s grid: %4s sync: %5.1f freq: %8d bfreq: %8d hz: %4d dt: %4.1f snr: %3s\n",
+//        call, grid, sync, freq, bfreq, hz, dt, ssnr);
 
       /*************************************************/
       /* Prepare status datagram                       */
       /*************************************************/
 
-      memcpy(buffer, header, sizeof(header));
+      memcpy(buffer, header, sizeof(header)); // Start with header
       size = sizeof(header);
       dst = buffer + sizeof(header);
 
-      memcpy(dst, msg1, sizeof(msg1));
+      memcpy(dst, msg1, sizeof(msg1)); // Message ID
       size += sizeof(msg1);
       dst += sizeof(msg1);
 
-//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
-
       copy_char(&dst, ID); size += strlen(ID) + 4; // Receiver software ID - ignored by RBNA
-
-//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
 
       copy_int4(&dst, 0);       // Base frequency as 8 byte integer
       copy_int4(&dst, bfreq);
       size += 8;
 
-//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
-
       copy_char(&dst, "FT8"); size += strlen("FT8") + 4;  // Rx Mode - ignored by RBNA
       copy_char(&dst, call); size += strlen(call) + 4; // DX call - ignored by RBNA
-
-//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
-
       copy_char(&dst, ssnr); size += strlen(ssnr) + 4; // SNR as string - ignored by RBNA
-
       copy_char(&dst, "FT8"); size += strlen("FT8") + 4; // Tx Mode - ignored by RBNA
-
-//      printf("size: %d dst-buffer: %ld\n", size, dst - buffer);
-
-
       copy_int1(&dst, 0); size += 1; // TX enable = false - ignored by RBNA
-
       copy_int1(&dst, 0); size += 1; // Transmitting = false - ignorded by RBNA
-
       copy_int1(&dst, 0); size += 1; // Decoding = false - ignored by RBNA
       copy_int4(&dst, 0); size += 4; // rxdf - ignored by RBNA
       copy_int4(&dst, 0); size += 4; // txdf - ignored by  RBNA
@@ -253,7 +235,7 @@ int main(int argc, char *argv[]) {
       copy_int1(&dst, 0); size += 1; // Off air = false - ignored by RBNA
 
 //      printf("Size: %3d dst-buffer: %3d ", size, (int)(dst-buffer));
-      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
+//      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
 
       if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size)
       {
@@ -265,6 +247,9 @@ int main(int argc, char *argv[]) {
 
     if(src == NULL) break;
   }
+
+  fclose(fp);
+  close(sock);
 
   return EXIT_SUCCESS;
 }
