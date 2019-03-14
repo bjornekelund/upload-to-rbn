@@ -168,6 +168,7 @@ int main(int argc, char *argv[]) {
       copy_int4(&dst, 0);        // txdf - ignored by  RBNA
       copy_char(&dst, "AB1CDE"); // DE call - ignored by RBNA
       copy_char(&dst, "AB12");   // DE grid - ignored by RBNA
+      copy_char(&dst, "AB12");   // DX grid - ignored by RBNA
       copy_int1(&dst, 0);        // TX watchdog = false - ignored by RBNA
       copy_char(&dst, "");       // Submode - ignored by RBNA
       copy_int1(&dst, 0);        // Fast mode = false - ignored by RBNA
