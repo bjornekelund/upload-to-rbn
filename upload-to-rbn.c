@@ -1,3 +1,12 @@
+/* A small utility for transfering decodes from
+   Pavel Demin's muilti-band FT8 receiver for the
+   Red Pitaya 125-14 and 122-16 to RBN Aggregator
+   for upload to the Reverse Beacon Network.
+   Uses a pruned version of the WSJT-X UDP broadcast
+   protocol because RBN Aggregator ignores many fields
+   in the datagrams.
+   By Björn Ekelund SM7IUN - March 2019 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -8,7 +17,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-const char ID[] = "STEMlab SDR FT8 TRX 1.0";
+const char ID[] = "STEMlab FT8 RX 1.0";
 
 int32_t read_int(char **pointer, int32_t *value) {
   char *start = *pointer;
@@ -49,7 +58,7 @@ void copy_int4(char **pointer, int32_t value) {
 
 void copy_double(char **pointer, double value) {
    memcpy(*pointer, &value, 8);
-// Unclear if works
+// Unclear if works. Ignored by RBN Aggregator.
   *pointer += 8;
 }
 
@@ -107,7 +116,7 @@ int main(int argc, char *argv[]) {
   broadcastAddr.sin_addr.s_addr = inet_addr(broadcastIP); // Broadcast IP address
   broadcastAddr.sin_port = htons(broadcastPort); // Broadcast IP port
 
-// Forevever - until we run out of input data
+// Loop until file with decodes is exhausted
   for(;;) {
     src = fgets(line, 64, fp);
 
@@ -154,10 +163,10 @@ int main(int argc, char *argv[]) {
       dst = buffer + sizeof(header);
       memcpy(dst, msg1, sizeof(msg1)); // Message identifier
       dst += sizeof(msg1);
-      copy_char(&dst, ID); // Receiver software ID - ignored by RBNA
-      copy_int4(&dst, 0);       // Base frequency as 8 byte integer
+      copy_char(&dst, ID);       // Receiver software ID - ignored by RBNA
+      copy_int4(&dst, 0);        // Base frequency as 8 byte integer
       copy_int4(&dst, bfreq);
-      copy_char(&dst, "FT8");    // Rx Mode - ignored by RBNA
+      copy_char(&dst, "FT8");    // Rx Mode
       copy_char(&dst, call);     // DX call - ignored by RBNA
       copy_char(&dst, ssnr);     // SNR as string - ignored by RBNA
       copy_char(&dst, "FT8");    // Tx Mode - ignored by RBNA
@@ -194,7 +203,7 @@ int main(int argc, char *argv[]) {
       dst += sizeof(msg2);
       copy_char(&dst, ID);      // Software ID - ignored by RBNA
       copy_int1(&dst, 1);       // New decode = true
-      copy_int4(&dst, 0);       //Time = zero - ignored by RBNA
+      copy_int4(&dst, 0);       // Time = zero - ignored by RBNA
       copy_int4(&dst, snr);  	// Report as 4 byte integer
       copy_double(&dst, dt); 	// Delta time - ignored by RBNA
       copy_int4(&dst, hz);      // Delta frequency in hertz - ignored by RBNA
