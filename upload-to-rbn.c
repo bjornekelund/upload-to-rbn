@@ -63,14 +63,17 @@ void copy_double(char **pointer, double value) {
 
   avalue = fabs(value);
 
-  sign = (value < 0) ? 1 : 0;
-  exponent = (uint64_t)(log(avalue)/log(2.0) + 1023);
-  mantissa = (uint64_t)((avalue / pow(2, floor(log(avalue)/log(2.0))) - 1) * pow(2, 52));
-  bits = (sign & 0x1) << 63 | (exponent & 0x7ff) << 52 | mantissa & 0xfffffffffffff;
-  rbits = ((uint64_t)htonl(bits & 0xffffffff) << 32) | htonl(bits >> 32);
-
+  if (avalue != 0.0) {
+    sign = (value < 0) ? 1 : 0;
+    exponent = (uint64_t)(log(avalue)/log(2.0) + 1023);
+    mantissa = (uint64_t)((avalue / pow(2, floor(log(avalue)/log(2.0))) - 1) * pow(2, 52));
+    bits = (sign & 0x1) << 63 | (exponent & 0x7ff) << 52 | mantissa & 0xfffffffffffff;
+    rbits = ((uint64_t)htonl(bits & 0xffffffff) << 32) | htonl(bits >> 32);
 //  printf("sign=%lu exponent=%lx mantissa=%lx bits=%016lx rbits=%016lx\n",
 //    sign, exponent, mantissa, bits, rbits);
+  }
+  else
+    rbits = 0;
 
    memcpy(*pointer, &rbits, 8);
   *pointer += 8;
