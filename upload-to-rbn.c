@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
@@ -57,8 +58,21 @@ void copy_int4(char **pointer, int32_t value) {
 }
 
 void copy_double(char **pointer, double value) {
-   memcpy(*pointer, &value, 8);
-// Unclear if works. Ignored by RBN Aggregator.
+  double avalue;
+  uint64_t sign, exponent, mantissa, bits, rbits;
+
+  avalue = fabs(value);
+
+  sign = (value < 0) ? 1 : 0;
+  exponent = (uint64_t)(log(avalue)/log(2.0) + 1023);
+  mantissa = (uint64_t)((avalue / pow(2, floor(log(avalue)/log(2.0))) - 1) * pow(2, 52));
+  bits = (sign & 0x1) << 63 | (exponent & 0x7ff) << 52 | mantissa & 0xfffffffffffff;
+  rbits = ((uint64_t)htonl(bits & 0xffffffff) << 32) | htonl(bits >> 32);
+
+//  printf("sign=%lu exponent=%lx mantissa=%lx bits=%016lx rbits=%016lx\n",
+//    sign, exponent, mantissa, bits, rbits);
+
+   memcpy(*pointer, &rbits, 8);
   *pointer += 8;
 }
 
@@ -205,6 +219,7 @@ int main(int argc, char *argv[]) {
       copy_int1(&dst, 1);       // New decode = true
       copy_int4(&dst, 0);       // Time = zero - ignored by RBNA
       copy_int4(&dst, snr);  	// Report as 4 byte integer
+//      printf("call=%s dt=%f ", call, dt);
       copy_double(&dst, dt); 	// Delta time - ignored by RBNA
       copy_int4(&dst, hz);      // Delta frequency in hertz - ignored by RBNA
       copy_char(&dst, "FT8");   // Receive mode - ignored by RBNA
