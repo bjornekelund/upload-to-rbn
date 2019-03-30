@@ -147,19 +147,41 @@ int main(int argc, char *argv[]) {
 
       if(!rc) continue; // Skip and do next line if parsing failed
 
-      // Snap frequency to base frequency, round down if outside main bands
-      switch ((int)(freq / 10000)) {
-    	case  184: bfreq =  1840000; break;
-	case  357: bfreq =  3573000; break;
-	case  535: bfreq =  5357000; break;
-	case  707: bfreq =  7074000; break;
-	case 1013: bfreq = 10136000; break;
-	case 1407: bfreq = 14074000; break;
-	case 1810: bfreq = 18100000; break;
-	case 2107: bfreq = 21074000; break;
-	case 2491: bfreq = 24915000; break;
-	case 2807: bfreq = 28074000; break;
-	case 5031: bfreq = 50313000; break;
+      // Snap frequency to standard base frequencies, round down if outside
+      switch ((int)(freq / 1000)) {
+    	case  1840:
+    	case  1841:
+    	case  1842: bfreq =  1840000; break;
+	case  3573:
+	case  3574:
+	case  3575: bfreq =  3573000; break;
+	case  5357:
+	case  5358:
+	case  5359: bfreq =  5357000; break;
+	case  7074:
+	case  7075:
+	case  7076: bfreq =  7074000; break;
+	case 10136:
+	case 10137:
+	case 10138: bfreq = 10136000; break;
+	case 14074:
+	case 14075:
+	case 14076: bfreq = 14074000; break;
+	case 18100: 
+	case 18101:
+	case 18102: bfreq = 18100000; break;
+	case 21074:
+	case 21075:
+	case 21076: bfreq = 21074000; break;
+	case 24915:
+	case 24916:
+	case 24917: bfreq = 24915000; break;
+	case 28074:
+	case 28075:
+	case 28076: bfreq = 28074000; break;
+	case 50313:
+	case 50314:
+	case 50315: bfreq = 50313000; break;
 	default:   bfreq = 1000 * (int)(freq / 1000);
       } // Switch
 
