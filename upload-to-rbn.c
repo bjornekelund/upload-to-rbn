@@ -149,39 +149,50 @@ int main(int argc, char *argv[]) {
 
       // Snap frequency to standard base frequencies, round down if outside
       switch ((int)(freq / 1000)) {
-    	case  1840:
-    	case  1841:
-    	case  1842: bfreq =  1840000; break;
-	case  3573:
-	case  3574:
-	case  3575: bfreq =  3573000; break;
+        case  1840:
+        case  1841:
+        case  1842:
+        case  1843: bfreq =  1840000; break;
+        case  3573:
+        case  3574:
+	case  3575:
+	case  3576: bfreq =  3573000; break;
 	case  5357:
 	case  5358:
-	case  5359: bfreq =  5357000; break;
+	case  5359:
+	case  5360: bfreq =  5357000; break;
 	case  7074:
 	case  7075:
-	case  7076: bfreq =  7074000; break;
+	case  7076:
+	case  7077: bfreq =  7074000; break;
 	case 10136:
 	case 10137:
-	case 10138: bfreq = 10136000; break;
+	case 10138:
+	case 10139: bfreq = 10136000; break;
 	case 14074:
 	case 14075:
-	case 14076: bfreq = 14074000; break;
+	case 14076:
+	case 14077: bfreq = 14074000; break;
 	case 18100: 
 	case 18101:
-	case 18102: bfreq = 18100000; break;
+	case 18102:
+	case 18103: bfreq = 18100000; break;
 	case 21074:
 	case 21075:
-	case 21076: bfreq = 21074000; break;
+	case 21076:
+	case 21077: bfreq = 21074000; break;
 	case 24915:
 	case 24916:
-	case 24917: bfreq = 24915000; break;
+	case 24917:
+	case 24918: bfreq = 24915000; break;
 	case 28074:
 	case 28075:
-	case 28076: bfreq = 28074000; break;
+	case 28076:
+	case 28077: bfreq = 28074000; break;
 	case 50313:
 	case 50314:
-	case 50315: bfreq = 50313000; break;
+	case 50315:
+	case 50316: bfreq = 50313000; break;
 	default:   bfreq = 1000 * (int)(freq / 1000);
       } // Switch
 
