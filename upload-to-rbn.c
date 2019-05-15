@@ -146,10 +146,8 @@ int main(int argc, char *argv[]) {
         && read_int(&src, &freq)        // Read receive frequency
         && sscanf(src, "%13s %4s", call, grid); // Read call and grid
 
-      printf("call: %8s grid: %6s sync: %5.1f freq: %8d dt: %4.1f snr: %3d\n",
-        call, grid, sync, freq, dt, snr);
-
-
+//      printf("call: %8s grid: %6s sync: %5.1f freq: %8d dt: %4.1f snr: %3d\n",
+//        call, grid, sync, freq, dt, snr);
 
       if(!rc) continue; // Skip and do next line if parsing failed
 
