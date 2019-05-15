@@ -137,6 +137,7 @@ int main(int argc, char *argv[]) {
   for(;;) {
     src = fgets(line, 64, fp);
 
+    sprintf(grid, "    ");
     if(src != NULL) {
       rc = read_time(&src, &tm)         // Read date and time
         && read_dbl(&src, &sync)        // Read sync
@@ -144,6 +145,11 @@ int main(int argc, char *argv[]) {
         && read_dbl(&src, &dt)          // Read timing error
         && read_int(&src, &freq)        // Read receive frequency
         && sscanf(src, "%13s %4s", call, grid); // Read call and grid
+
+      printf("call: %8s grid: %6s sync: %5.1f freq: %8d dt: %4.1f snr: %3d\n",
+        call, grid, sync, freq, dt, snr);
+
+
 
       if(!rc) continue; // Skip and do next line if parsing failed
 
