@@ -137,7 +137,8 @@ int main(int argc, char *argv[]) {
   for(;;) {
     src = fgets(line, 64, fp);
 
-    sprintf(grid, "    ");
+    grid[0] = 0;
+    call[0] = 0;
     if(src != NULL) {
       rc = read_time(&src, &tm)         // Read date and time
         && read_dbl(&src, &sync)        // Read sync
