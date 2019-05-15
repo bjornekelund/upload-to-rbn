@@ -244,7 +244,7 @@ int main(int argc, char *argv[]) {
       }
 
       /*************************************************/
-      /* Prepare status decode datagram                */
+      /* Prepare decode datagram                       */
       /*************************************************/
 
       memcpy(buffer, header, sizeof(header)); // Header including schema information
