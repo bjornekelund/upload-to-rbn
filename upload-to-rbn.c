@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
 
       sprintf(ssnr, "%d", snr); // Report as string for status datagram
       hz = freq - bfreq; // Delta frequency for decode datagram
-      sprintf(message, "CQ %s %s (%dHz)", call, grid, hz); // Compose fake message based on decode
+      sprintf(message, "CQ %s %s", call, grid); // Compose fake message based on decode
 
 //      printf("Message: %s\n", message);
 
