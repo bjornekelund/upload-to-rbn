@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
       if(!rc) continue; // Skip and do next line if parsing failed
 
       // Snap frequency to standard base frequencies, round down if outside
-/*      switch ((int)(freq / 1000)) {
+      switch ((int)(freq / 1000)) {
         case  1840:
         case  1841:
         case  1842:
@@ -200,12 +200,11 @@ int main(int argc, char *argv[]) {
 	case 50316: bfreq = 50313000; break;
 	default:   bfreq = 1000 * (int)(freq / 1000);
       } // Switch
-*/
-      bfreq = freq; // Report exact frequency, hz = zero
+
 
       sprintf(ssnr, "%d", snr); // Report as string for status datagram
       hz = freq - bfreq; // Delta frequency for decode datagram
-      sprintf(message, "CQ %s %s", call, grid); // Compose fake message based on decode
+      sprintf(message, "CQ %s %s (%dHz)", call, grid, hz); // Compose fake message based on decode
 
 //      printf("Message: %s\n", message);
 
