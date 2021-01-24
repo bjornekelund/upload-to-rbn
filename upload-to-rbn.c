@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
       }
 
-      (void)usleep((useconds_t)20000);
+      (void)usleep((useconds_t)10000);
 
       /*************************************************/
       /* Prepare decode datagram                       */
@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
       }
 
-      (void)usleep((useconds_t)20000);
+      (void)usleep((useconds_t)10000);
     } // if src != NULL
 
     if(src == NULL) break;
