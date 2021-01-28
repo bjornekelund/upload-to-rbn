@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
   int broadcastPermission = 1;	    // Socket opt to set permission to broadcast
   struct tm tm;                     // Time and date of decode
   double sync, dt;
-  int32_t snr, freq, bfreq, hz, counter, rc, size;
+  int32_t snr, freq, bfreq, prevbfreq, hz, counter, rc, size;
   char buffer[512], line[64], ssnr[8], call[16], grid[8], message[32];
   char *src, *dst, *start;
 
@@ -133,6 +133,8 @@ int main(int argc, char *argv[]) {
   broadcastAddr.sin_addr.s_addr = inet_addr(broadcastIP); // Broadcast IP address
   broadcastAddr.sin_port = htons(broadcastPort); // Broadcast IP port
 
+  prevbfreq = 0;
+
 // Loop until file with decodes is exhausted
   for(;;) {
     src = fgets(line, 64, fp);
@@ -160,45 +162,45 @@ int main(int argc, char *argv[]) {
         case  1843: bfreq =  1840000; break;
         case  3573:
         case  3574:
-	case  3575:
-	case  3576: bfreq =  3573000; break;
-	case  5357:
-	case  5358:
-	case  5359:
-	case  5360: bfreq =  5357000; break;
-	case  7074:
-	case  7075:
-	case  7076:
-	case  7077: bfreq =  7074000; break;
-	case 10136:
-	case 10137:
-	case 10138:
-	case 10139: bfreq = 10136000; break;
-	case 14074:
-	case 14075:
-	case 14076:
-	case 14077: bfreq = 14074000; break;
-	case 18100: 
-	case 18101:
-	case 18102:
-	case 18103: bfreq = 18100000; break;
-	case 21074:
-	case 21075:
-	case 21076:
-	case 21077: bfreq = 21074000; break;
-	case 24915:
-	case 24916:
-	case 24917:
-	case 24918: bfreq = 24915000; break;
-	case 28074:
-	case 28075:
-	case 28076:
-	case 28077: bfreq = 28074000; break;
-	case 50313:
-	case 50314:
-	case 50315:
-	case 50316: bfreq = 50313000; break;
-	default:   bfreq = 1000 * (int)(freq / 1000);
+	      case  3575:
+        case  3576: bfreq =  3573000; break;
+        case  5357:
+        case  5358:
+        case  5359:
+        case  5360: bfreq =  5357000; break;
+        case  7074:
+        case  7075:
+        case  7076:
+        case  7077: bfreq =  7074000; break;
+        case 10136:
+        case 10137:
+        case 10138:
+        case 10139: bfreq = 10136000; break;
+        case 14074:
+        case 14075:
+        case 14076:
+        case 14077: bfreq = 14074000; break;
+        case 18100: 
+        case 18101:
+        case 18102:
+        case 18103: bfreq = 18100000; break;
+        case 21074:
+        case 21075:
+        case 21076:
+        case 21077: bfreq = 21074000; break;
+        case 24915:
+        case 24916:
+        case 24917:
+        case 24918: bfreq = 24915000; break;
+        case 28074:
+        case 28075:
+        case 28076:
+        case 28077: bfreq = 28074000; break;
+        case 50313:
+        case 50314:
+        case 50315:
+        case 50316: bfreq = 50313000; break;
+        default:   bfreq = 1000 * (int)(freq / 1000);
       } // Switch
 
 
@@ -243,13 +245,15 @@ int main(int argc, char *argv[]) {
 //      printf("Status: size: %3d ", size);
 //      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
 
-      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr,
-          sizeof(broadcastAddr)) != size) {
-        fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
-        return EXIT_FAILURE;
+      if (prevbfreq != bfreq) {
+        if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size) {
+                fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
+                return EXIT_FAILURE;
+        }
+        (void)usleep((useconds_t)1000); // Wait 1ms
       }
 
-      (void)usleep((useconds_t)10000);
+      prevbfreq = bfreq;    
 
       /*************************************************/
       /* Prepare decode datagram                       */
@@ -282,7 +286,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
       }
 
-      (void)usleep((useconds_t)10000);
+//      (void)usleep((useconds_t)10000);
     } // if src != NULL
 
     if(src == NULL) break;
