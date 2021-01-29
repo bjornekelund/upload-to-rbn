@@ -5,7 +5,8 @@
    Uses a pruned version of the WSJT-X UDP broadcast
    protocol because RBN Aggregator ignores many fields
    in the datagrams.
-   By Björn Ekelund SM7IUN - March 2019 */
+   By Björn Ekelund SM7IUN - March 2019
+   Updated January 2021 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,7 +88,7 @@ int main(int argc, char *argv[]) {
   int broadcastPermission = 1;	    // Socket opt to set permission to broadcast
   struct tm tm;                     // Time and date of decode
   double sync, dt;
-  int32_t snr, freq, bfreq, prevbfreq, hz, counter, rc, size;
+  int32_t snr, freq, bfreq, prevbfreq, hz, counter, rc, size, totalsize = 0;
   char buffer[512], line[64], ssnr[8], call[16], grid[8], message[32];
   char *src, *dst, *start;
 
@@ -246,9 +247,10 @@ int main(int argc, char *argv[]) {
 //      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
 
       if (prevbfreq != bfreq) {
+        totalsize += size;
         if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size) {
-                fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
-                return EXIT_FAILURE;
+          fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
+          return EXIT_FAILURE;
         }
         (void)usleep((useconds_t)1000); // Wait 1ms
       }
@@ -280,8 +282,8 @@ int main(int argc, char *argv[]) {
 //      printf("Decode: size: %3d\n", size);
 //      printf("Message:\n"); for (i = 0; i < size; i++) printf("%02X ", buffer[i] & 0xFF); printf("\n");
 
-      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, 
-          sizeof(broadcastAddr)) != size) {
+      totalsize += size;
+      if (sendto(sock, buffer, size, 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) != size) {
         fprintf(stderr, "sendto() sent a different number of bytes than expected.\n");
         return EXIT_FAILURE;
       }
@@ -291,6 +293,9 @@ int main(int argc, char *argv[]) {
 
     if(src == NULL) break;
   }
+
+  if (totalsize > 65535)
+    printf("Warning: Total upload is %d bytes, risk for lost decodes\n", totalsize);
 
   fclose(fp);
   close(sock);
