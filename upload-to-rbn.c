@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
         case  1843: bfreq =  1840000; break;
         case  3573:
         case  3574:
-	      case  3575:
+        case  3575:
         case  3576: bfreq =  3573000; break;
         case  5357:
         case  5358:
