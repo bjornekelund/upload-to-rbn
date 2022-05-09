@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
         case 50314:
         case 50315:
         case 50316: bfreq = 50313000; break;
-        default:   bfreq = 1000 * (int)(freq / 1000);
+        default:   bfreq = 1000 * (int)((freq - 200)/ 1000);
       } // Switch
 
 
